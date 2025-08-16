@@ -1,0 +1,15 @@
+services:
+  - type: cron
+    name: exchange-rate-updater
+    runtime: python
+    region: oregon
+    repo: https://github.com/YOUR_GITHUB_USERNAME/Exchangerate-app
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python update_rates.py
+    cronSchedule: "0 06 * * *" # runs every day at 06:00 UTC
+    envVars:
+      - key: SUPABASE_URL
+        fromSecret: SUPABASE_URL
+      - key: SUPABASE_KEY
+        fromSecret: SUPABASE_KEY
