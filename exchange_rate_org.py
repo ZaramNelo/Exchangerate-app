@@ -5,6 +5,20 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from time import sleep
 import pandas as pd
+import psycopg2
+from datetime import date
+import os
+from supabase import create_client
+from dotenv import load_dotenv
+
+load_dotenv()
+
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+
+supabase = create_client(url, key)
+# Replace with your Supabase credentials
+
 
 # the options part is to prevent the driver from automatically popping up the chrome browser
 # ######### If there's an error about the webdriver, reinstall webdriver_manager ##########
@@ -46,6 +60,7 @@ while help >= 0:
             flag = True
     help-=1
 
+driver.quit()
 
 # parse all the strings in the rates list and then convert it to ints, and store it in naira_changes
 naira_changes = []
@@ -61,12 +76,17 @@ for i in rates:
 
 # plotting of the graph    
 formatted_dates = pd.to_datetime(dates)
-df = pd.DataFrame({
-    'Date': formatted_dates,
-    'ExchangeRate': naira_changes
-})
-df.to_csv("scraped_data.csv", index=False)
-print("Data saved to scraped_data.csv")
+data_batch = [
+    {
+        "currency_pair": "USD/NGN",
+        "rate": naira_changes[i],
+        "rate_date": formatted_dates[i].date().isoformat()
+    }
+    for i in range(len(formatted_dates))
+]
+
+supabase.table("exchange_rates").upsert(data_batch).execute()
+
 # plt.plot(formatted_dates,naira_changes)
 # year_starts = pd.date_range(start=formatted_dates.min(), end=formatted_dates.max(), freq='YS')
 # plt.xticks(year_starts.to_pydatetime(), year_starts.strftime("%Y"), rotation=0)

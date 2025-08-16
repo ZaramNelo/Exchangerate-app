@@ -1,15 +1,39 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from supabase import create_client
+import os
+from dotenv import load_dotenv
 
-# 3. Load data
-df = pd.read_csv("scraped_data.csv", parse_dates=["Date"])
+load_dotenv()
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 4. Title
+
+# Fetch all rows from Supabase with pagination
+all_data = []
+page = 0
+page_size = 1000  # max rows per request
+while True:
+    res = supabase.table("exchange_rates").select("*").range(page*page_size, (page+1)*page_size - 1).execute()
+    if not res.data:
+        break
+    all_data.extend(res.data)
+    page += 1
+
+df = pd.DataFrame(all_data)
+
+# Convert date and rename columns to match your existing app
+df['rate_date'] = pd.to_datetime(df['rate_date'], errors='coerce')
+df = df.rename(columns={'rate_date': 'Date', 'rate': 'ExchangeRate'})
+
+
+# Streamlit App
 st.title("📈 Nigerian Exchange Rate Visualizer")
 st.markdown("Use the sidebar to filter by year or select a specific date to explore NGN/USD exchange rates.")
 
-# 5. Sidebar filter
+# Sidebar filter
 st.sidebar.header("📅 Filter by Year")
 min_year = df["Date"].dt.year.min()
 max_year = df["Date"].dt.year.max()
@@ -18,7 +42,7 @@ start_year = st.sidebar.text_input("Start Year", str(min_year))
 end_year = st.sidebar.text_input("End Year", str(max_year))
 show_graph = st.sidebar.button("Show Graph")
 
-# 6. Filtered Graph
+# Filtered Graph
 if show_graph:
     st.markdown("### 📊 Filtered Exchange Rate Graph")
 
@@ -53,7 +77,7 @@ if show_graph:
 
         st.plotly_chart(fig, use_container_width=True)
 
-# 7. Specific Date Checker (Sidebar)
+# Specific Date Checker (Sidebar)
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔍 Check Rate by Date")
 
@@ -67,7 +91,7 @@ specific_date = st.sidebar.date_input(
 
 show_rate = st.sidebar.button("Get rate for date")
 
-# 8. Result Display on Main Page
+# Result Display on Main Page
 if show_rate:
     specific_date = pd.to_datetime(specific_date)
     exact_row = df[df["Date"] == specific_date]
@@ -83,4 +107,3 @@ if show_rate:
     else:
         rate = exact_row.iloc[0]["ExchangeRate"]
         st.success(f"₦{rate:.2f}/USD on {specific_date.date()}")
-
