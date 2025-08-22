@@ -12,7 +12,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Page configuration for better layout
 st.set_page_config(
-    page_title="🇳🇬 Nigerian Exchange Rate Dashboard",
+    page_title="Nigerian Exchange Rate Dashboard",
     page_icon="🇳🇬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -108,6 +108,26 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
     
+    /* Specific styling for the get rate button */
+    #get_rate_btn {
+        background: linear-gradient(90deg, #6c757d 0%, #495057 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 15px !important;
+        padding: 0.5rem 1.5rem !important;
+        font-weight: normal !important;
+        font-size: 0.9rem !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 2px 8px rgba(108, 117, 125, 0.2) !important;
+        min-width: 120px !important;
+    }
+    
+    #get_rate_btn:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3) !important;
+        background: linear-gradient(90deg, #5a6268 0%, #343a40 100%) !important;
+    }
+    
     /* Sidebar styling */
     .css-1d391kg {
         background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
@@ -160,6 +180,29 @@ st.markdown("""
         margin: 1rem 0;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Date checker section styling */
+    .date-checker-section {
+        background: rgba(248, 249, 250, 0.8);
+        border-radius: 15px;
+        padding: 2rem;
+        margin: 2rem 0;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+    
+    .date-checker-section .stDateInput {
+        margin: 1rem 0;
+    }
+    
+    .date-checker-section .stButton {
+        margin: 1rem 0;
+    }
+    
+    .date-checker-section .stButton > button {
+        height: 3rem;
+        font-size: 1.1rem;
     }
     
     /* Animations */
@@ -236,8 +279,18 @@ def fetch_exchange_data():
 
 df = fetch_exchange_data()
 
+# Initialize session state for sidebar visibility and graph display
+if 'sidebar_visible' not in st.session_state:
+    st.session_state.sidebar_visible = True
+if 'show_graph_requested' not in st.session_state:
+    st.session_state.show_graph_requested = False
+if 'selected_start_year' not in st.session_state:
+    st.session_state.selected_start_year = df["Date"].dt.year.min()
+if 'selected_end_year' not in st.session_state:
+    st.session_state.selected_end_year = df["Date"].dt.year.max()
+
 # Main header with enhanced styling
-st.markdown('<h1 class="main-header">🇳🇬 Nigerian Exchange Rate Dashboard</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">Nigerian Exchange Rate Dashboard</h1>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">Real-time exchange rate visualization and analysis for NGN/USD</p>', unsafe_allow_html=True)
 
 # Top metrics dashboard
@@ -288,55 +341,77 @@ with col4:
     """, unsafe_allow_html=True)
 
 # Enhanced sidebar with better styling
-st.sidebar.markdown("""
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            color: white; 
-            padding: 1rem; 
-            border-radius: 10px; 
-            margin-bottom: 1rem;
-            text-align: center;">
-    <h3>Controls   🎛️</h3>
-</div>
-""", unsafe_allow_html=True)
-
 # Sidebar filter with enhanced styling
-st.sidebar.markdown("### 📅 Filter by Year")
-min_year = df["Date"].dt.year.min()
-max_year = df["Date"].dt.year.max()
+if st.session_state.sidebar_visible:
+    st.sidebar.markdown("### 📅 Filter by Year")
+    min_year = df["Date"].dt.year.min()
+    max_year = df["Date"].dt.year.max()
 
-# Add some spacing and styling
-st.sidebar.markdown("---")
+    # Add some spacing and styling
+    st.sidebar.markdown("---")
 
-# Create year options for dropdowns to prevent errors
-year_options = list(range(min_year, max_year + 1))
+    # Create year options for dropdowns to prevent errors
+    year_options = list(range(min_year, max_year + 1))
 
-# Use selectbox instead of text input for better error prevention
-start_year = st.sidebar.selectbox(
-    "Start Year", 
-    options=year_options,
-    index=0,
-    help="Select the start year for filtering"
-)
+    # Use selectbox instead of text input for better error prevention
+    start_year = st.sidebar.selectbox(
+        "Start Year", 
+        options=year_options,
+        index=0,
+        key="start_year_selector",
+        help="Select the start year for filtering"
+    )
+    
+    # Store selected year in session state
+    st.session_state.selected_start_year = start_year
 
-end_year = st.sidebar.selectbox(
-    "End Year", 
-    options=year_options,
-    index=len(year_options) - 1,
-    help="Select the end year for filtering"
-)
+    end_year = st.sidebar.selectbox(
+        "End Year", 
+        options=year_options,
+        index=len(year_options) - 1,
+        key="end_year_selector",
+        help="Select the end year for filtering"
+    )
+    
+    # Store selected year in session state
+    st.session_state.selected_end_year = end_year
 
-# Validation with user-friendly messages
-if start_year > end_year:
-    st.sidebar.warning("⚠️ **Invalid Range**: Start year cannot be after end year")
-    st.sidebar.info("💡 **Tip**: Start year should be earlier than or equal to end year")
+    # Validation with user-friendly messages
+    if start_year > end_year:
+        st.sidebar.warning("⚠️ **Invalid Range**: Start year cannot be after end year")
+        st.sidebar.info("💡 **Tip**: Start year should be earlier than or equal to end year")
+    else:
+        st.sidebar.success(f"✅ **Valid Range**: {start_year} to {end_year}")
+
+    st.sidebar.markdown("---")
+    show_graph = st.sidebar.button("🚀 Show Exchange Rate Graph", use_container_width=True)
+
+    # Toggle sidebar visibility when graph button is clicked
+    if show_graph:
+        st.session_state.sidebar_visible = False
+        st.session_state.show_graph_requested = True
+        st.rerun()
 else:
-    st.sidebar.success(f"✅ **Valid Range**: {start_year} to {end_year}")
-
-st.sidebar.markdown("---")
-show_graph = st.sidebar.button("🚀 Show Exchange Rate Graph", use_container_width=True)
+    # Show a button to reopen the sidebar
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("📱 Reopen Controls", use_container_width=True):
+            st.session_state.sidebar_visible = True
+            st.rerun()
 
 # Enhanced graph section
-if show_graph:
+if st.session_state.show_graph_requested:
+    # Use stored year values from session state
+    start_year = st.session_state.selected_start_year
+    end_year = st.session_state.selected_end_year
+    
+    # Add a button to close the graph and return to normal view
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("❌ Close Graph", use_container_width=True):
+            st.session_state.show_graph_requested = False
+            st.rerun()
+    
     # Additional validation before showing graph
     if start_year > end_year:
         st.error("❌ **Cannot Display Graph**: Invalid year range")
@@ -376,13 +451,14 @@ if show_graph:
         # Original layout with grid
         fig.update_xaxes(showgrid=True, gridcolor='gray')
         fig.update_yaxes(showgrid=True, gridcolor='gray')
+        fig.update_layout(dragmode="pan")
         
         # Display chart in enhanced container
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         st.plotly_chart(fig, use_container_width=True, config={
             'displayModeBar': True, 
             'displaylogo': False,
-            'modeBarButtonsToRemove': ['pan2d', 'lasso2d'],
+            'modeBarButtonsToRemove': ['lasso2d'],
             'toImageButtonOptions': {
                 'format': 'png',
                 'filename': f'exchange_rate_{start_year}_{end_year}',
@@ -393,28 +469,40 @@ if show_graph:
         })
         st.markdown('</div>', unsafe_allow_html=True)
 
-# Enhanced specific date checker
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🔍 Check Rate by Date")
+# Enhanced result display for mobile
+# Mobile-specific date picker in main body
+st.markdown('<h2 class="section-header">📱 Date Checker</h2>', unsafe_allow_html=True)
 
-# Better date input styling
-specific_date = st.sidebar.date_input(
-    "📅 Pick a date",
-    value=df["Date"].min(),
-    min_value=df["Date"].min(),
-    max_value=df["Date"].max(),
-    key="specific_date",
-    help="Select a specific date to check the exchange rate"
-)
+# Add spacing before the date picker
+st.markdown("<br>", unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-show_rate = st.sidebar.button("🔍 Get Rate for Date", use_container_width=True)
+# Use columns for better mobile layout with improved spacing
+col1, col2 = st.columns([2, 1])
 
-# Enhanced result display
-if show_rate:
+with col1:
+    st.markdown("<div style='padding: 0.5rem 0;'>", unsafe_allow_html=True)
+    specific_date_mobile = st.date_input(
+        "📅 Pick a date for rate check",
+        value=df["Date"].min(),
+        min_value=df["Date"].min(),
+        max_value=df["Date"].max(),
+        key="specific_date_mobile",
+        help="Select a specific date to check the exchange rate"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col2:
+    st.markdown("<div style='padding: 0.5rem 0; text-align: center;'>", unsafe_allow_html=True)
+    show_rate_mobile = st.button("🔍 Get Rate", use_container_width=False, key="get_rate_btn")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# Add spacing after the date picker
+st.markdown("<br>", unsafe_allow_html=True)
+
+if show_rate_mobile:
     st.markdown('<h2 class="section-header">📌 Exchange Rate Result</h2>', unsafe_allow_html=True)
     
-    specific_date_pd = pd.to_datetime(specific_date)
+    specific_date_pd = pd.to_datetime(specific_date_mobile)
     exact_row = df[df["Date"] == specific_date_pd]
 
     if exact_row.empty:
@@ -424,7 +512,7 @@ if show_rate:
         closest_rate = closest.iloc[0]['ExchangeRate']
         
         st.info(f"""
-        📅 **No data for {specific_date}**
+        📅 **No data for {specific_date_mobile}**
         
         🎯 **Closest available date:** {closest_date}
         💱 **Rate:** ₦{closest_rate:.2f}/USD
@@ -448,7 +536,7 @@ if show_rate:
                 st.success(f"""
                 🎯 **Exchange Rate Found!**
                 
-                📅 **Date:** {specific_date}
+                📅 **Date:** {specific_date_mobile}
                 💱 **Rate:** ₦{rate:.2f}/USD
                 {change_emoji} **Change:** {pct_change:+.2f}% from previous day
                 """)
@@ -456,14 +544,14 @@ if show_rate:
                 st.success(f"""
                 🎯 **Exchange Rate Found!**
                 
-                📅 **Date:** {specific_date}
+                📅 **Date:** {specific_date_mobile}
                 💱 **Rate:** ₦{rate:.2f}/USD
                 """)
         else:
             st.success(f"""
             🎯 **Exchange Rate Found!**
             
-            📅 **Date:** {specific_date}
+            📅 **Date:** {specific_date_mobile}
             💱 **Rate:** ₦{rate:.2f}/USD
             """)
 
