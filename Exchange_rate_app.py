@@ -315,7 +315,7 @@ with col2:
     st.markdown(f"""
     <div class="metric-card">
         <h3>Daily Change</h3>
-        <h2>{change_icon} ₦{rate_change:.2f}</h2>
+       <h2>{change_icon} {("-₦" if rate_change < 0 else "₦")}{abs(rate_change):.2f}</h2>
         <p style="color: {change_color};">vs Previous Day</p>
     </div>
     """, unsafe_allow_html=True)
